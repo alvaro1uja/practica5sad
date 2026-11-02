@@ -1,7 +1,7 @@
 from ahp import media_geometrica
 
 def main():
-    print(prueba)
+    print("prueba")
 
 
 if __name__ == "__main__":
