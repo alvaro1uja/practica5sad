@@ -3,6 +3,7 @@
 Requiere NumPy y Tkinter. Los cálculos se realizan en el backend ahp.py.
 """
 
+from problema import PROBLEMAS
 from math import isclose
 from ahp import media_geometrica, resolvedorahp, test_consistencia
 from ahp import pesosaproximados, pesosporautovalor
@@ -52,13 +53,15 @@ def construir_matriz(n: int, respuestas: list[str]) -> list[list[float]]:
     return matriz
 
 
-def preparar_resultados(criterios, alternativas, matrices, metodo="Media geométrica") -> str:
+def preparar_resultados(criterios, alternativas, matrices, metodo="Media geométrica", problema=None) -> str:
     """La primera matriz es la de criterios; las demás siguen su mismo orden."""
     calcularpesos = METODOS[metodo]
-    globales = resolvedorahp(matrices[0], matrices[1:], calcularpesos)
+    cuantitativos = (problema or {}).get("cuantitativos", [])
+    if not cuantitativos:
+        globales = resolvedorahp(matrices[0], matrices[1:], calcularpesos)
     texto = ["RESULTADOS AHP — " + metodo.upper(), ""]
     revisiones = []
-    titulos = ["Criterios"] + [f"Alternativas según {c}" for c in criterios]
+    titulos = ["Criterios"] + [f"Alternativas según {c}" for c in criterios[len(cuantitativos):]]
 
     for posicion, matriz in enumerate(matrices):
         nombres = criterios if posicion == 0 else alternativas
@@ -80,6 +83,23 @@ def preparar_resultados(criterios, alternativas, matrices, metodo="Media geomét
         texto.append("Filas y columnas de la matriz: " + ", ".join(nombres))
         for fila in matriz:
             texto.append("  " + "  ".join(f"{valor:9.4f}" for valor in fila))
+        texto.append("")
+
+    if cuantitativos:
+        texto.append("Datos numéricos: valor de cada jugador dividido entre el máximo.")
+        texto.append("Orden: " + ", ".join(alternativas))
+        locales = []
+        for criterio, valores in zip(criterios, cuantitativos):
+            normalizados = [valor / max(valores) for valor in valores]
+            locales.append(normalizados)
+            texto.append(criterio + ": " + ", ".join(f"{v:.4f}" for v in normalizados))
+        for matriz in matrices[1:]:
+            locales.append(calcularpesos(matriz))
+        pesos = calcularpesos(matrices[0])
+        globales = [sum(pesos[j] * locales[j][i] for j in range(len(pesos)))
+                    for i in range(len(alternativas))]
+        tasacion = globales[3] * sum(problema["precios"]) / sum(globales[:3])
+        texto.append(f"Tasación de Rivera: {tasacion:.2f} millones de euros.")
         texto.append("")
 
     texto.extend(["RANKING — PRIORIDADES GLOBALES", "Mayor prioridad = mejor posición."])
@@ -220,28 +240,42 @@ def main():
                 posicion += 1
         lienzo.yview_moveto(0)
 
-    def generar():
+    problemaactivo = None
+
+    def generar(problema=None):
+        nonlocal problemaactivo
         nonlocal criterios, alternativas, respuestas
+        if respuestas and not messagebox.askyesno(
+                "Generar comparaciones", "Se borrarán las respuestas anteriores. ¿Continuar?"):
+            return
+        if problema:
+            nombrescriterios.set(", ".join(problema["criterios"]))
+            nombresalternativas.set(", ".join(problema["alternativas"]))
         try:
             nuevoscriterios = leer_nombres(nombrescriterios.get())
             nuevasalternativas = leer_nombres(nombresalternativas.get())
         except ValueError as error:
             messagebox.showerror("Revisa los nombres", str(error))
             return
-        if respuestas and not messagebox.askyesno(
-                "Generar comparaciones", "Se borrarán las respuestas anteriores. ¿Continuar?"):
-            return
         criterios = nuevoscriterios
         alternativas = nuevasalternativas
+        problemaactivo = problema
+        comparados = criterios[len((problema or {}).get("cuantitativos", [])):]
         respuestas = []
-        for nombres in [criterios] + [alternativas for criterio in criterios]:
+        for nombres in [criterios] + [alternativas for criterio in comparados]:
             grupo = []
             for pareja in range(len(nombres) * (len(nombres) - 1) // 2):
                 variable = tk.StringVar()
+                if problema:
+                    valor = problema["parejas"][len(respuestas)][pareja]
+                    variable.set("Igual importancia" if valor == 1 else
+                                 f"Izquierda: {valor}" if valor > 1 else f"Derecha: {-valor}")
                 variable.trace_add("write", limpiar_resultados)
                 grupo.append(variable)
             respuestas.append(grupo)
-        selector["values"] = ["Criterios"] + [f"Alternativas: {c}" for c in criterios]
+        if problema:
+            metodo.set(problema["metodo"])
+        selector["values"] = ["Criterios"] + [f"Alternativas: {c}" for c in comparados]
         selector.current(0)
         limpiar_resultados()
         mostrar_comparaciones()
@@ -260,7 +294,7 @@ def main():
                 messagebox.showerror("Comparaciones incompletas", str(error))
                 return
             matrices.append(matriz)
-        texto = preparar_resultados(criterios, alternativas, matrices, metodo.get())
+        texto = preparar_resultados(criterios, alternativas, matrices, metodo.get(), problemaactivo)
         salida.configure(state="normal")
         salida.delete("1.0", "end")
         salida.insert("1.0", texto)
@@ -281,6 +315,14 @@ def main():
         salida.configure(state="disabled")
         pestanas.tab(resultados, state="normal")
         pestanas.select(resultados)
+
+    guardados = ttk.Frame(datos)
+    guardados.pack(anchor="w", pady=(0, 16))
+    elegido = ttk.Combobox(guardados, values=list(PROBLEMAS), state="readonly", width=32)
+    elegido.current(0)
+    elegido.pack(side="left")
+    ttk.Button(guardados, text="Cargar ejercicio",
+               command=lambda: generar(PROBLEMAS[elegido.get()])).pack(side="left", padx=8)
 
     ttk.Button(datos, text="Generar comparaciones", style="Principal.TButton", command=generar).pack(anchor="w")
     ttk.Label(comparaciones, text="Compara tus preferencias", style="Titulo.TLabel").pack(
