@@ -5,6 +5,13 @@ Requiere NumPy y Tkinter. Los cálculos se realizan en el backend ahp.py.
 
 from math import isclose
 from ahp import media_geometrica, resolvedorahp, test_consistencia
+from ahp import pesosaproximados, pesosporautovalor
+
+METODOS = {
+    "Media geométrica": media_geometrica,
+    "Aproximado": pesosaproximados,
+    "Autovalor": pesosporautovalor,
+}
 
 
 # El valor compara el elemento izquierdo con el derecho.
@@ -45,16 +52,17 @@ def construir_matriz(n: int, respuestas: list[str]) -> list[list[float]]:
     return matriz
 
 
-def preparar_resultados(criterios, alternativas, matrices) -> str:
+def preparar_resultados(criterios, alternativas, matrices, metodo="Media geométrica") -> str:
     """La primera matriz es la de criterios; las demás siguen su mismo orden."""
-    globales = resolvedorahp(matrices[0], matrices[1:])
-    texto = ["RESULTADOS AHP — MEDIA GEOMÉTRICA", ""]
+    calcularpesos = METODOS[metodo]
+    globales = resolvedorahp(matrices[0], matrices[1:], calcularpesos)
+    texto = ["RESULTADOS AHP — " + metodo.upper(), ""]
     revisiones = []
     titulos = ["Criterios"] + [f"Alternativas según {c}" for c in criterios]
 
     for posicion, matriz in enumerate(matrices):
         nombres = criterios if posicion == 0 else alternativas
-        pesos = media_geometrica(matriz)
+        pesos = calcularpesos(matriz)
         consistencia = test_consistencia(matriz)
         titulo = titulos[posicion]
         texto.append(titulo.upper())
@@ -252,12 +260,12 @@ def main():
                 messagebox.showerror("Comparaciones incompletas", str(error))
                 return
             matrices.append(matriz)
-        texto = preparar_resultados(criterios, alternativas, matrices)
+        texto = preparar_resultados(criterios, alternativas, matrices, metodo.get())
         salida.configure(state="normal")
         salida.delete("1.0", "end")
         salida.insert("1.0", texto)
         # Resalta los apartados sin modificar el contenido del resultado.
-        titulos = ["CRITERIOS", "RESULTADOS AHP — MEDIA GEOMÉTRICA",
+        titulos = ["CRITERIOS", "RESULTADOS AHP — " + metodo.get().upper(),
                    "RANKING — PRIORIDADES GLOBALES"]
         titulos += [f"Alternativas según {c}".upper() for c in criterios]
         for numero, linea in enumerate(texto.splitlines(), start=1):
@@ -304,7 +312,15 @@ def main():
     lienzo.bind("<Configure>", lambda event: lienzo.itemconfigure(contenido, width=event.width))
     filas.columnconfigure(0, weight=1)
     filas.columnconfigure(2, weight=1)
-    ttk.Button(comparaciones, text="Resolver AHP", style="Principal.TButton", command=resolver).pack(pady=(12, 0))
+    acciones = ttk.Frame(comparaciones)
+    acciones.pack(pady=(12, 0))
+    ttk.Label(acciones, text="Método:").pack(side="left")
+    metodo = tk.StringVar(value="Media geométrica")
+    ttk.Combobox(acciones, textvariable=metodo, values=list(METODOS),
+                 state="readonly", width=18).pack(side="left", padx=8)
+    metodo.trace_add("write", limpiar_resultados)
+    ttk.Button(acciones, text="Resolver AHP", style="Principal.TButton",
+               command=resolver).pack(side="left")
 
     ttk.Label(resultados, text="Resultados de la decisión", style="Titulo.TLabel").pack(
         anchor="w", pady=(0, 14))
