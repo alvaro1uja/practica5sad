@@ -25,15 +25,15 @@ def media_geometrica(matriz: list[list[float]]) -> list[float]:
 
 
 #funcion que resuelve el AHP y devuelve las prioridades globales de las alternativas
-def resolvedorahp(matrizcriterios: list[list[float]], matricesalternativas: list[list[list[float]]]) -> list[float]:
+def resolvedorahp(matrizcriterios: list[list[float]], matricesalternativas: list[list[list[float]]], metodo=media_geometrica) -> list[float]:
     #1. Calcular los pesos de los criterios
-    pesoscriterios = media_geometrica(matrizcriterios)
+    pesoscriterios = metodo(matrizcriterios)
 
     #2. Calcular las prioridades de alternativas en cada criterio
     prioridadeslocales = []
 
     for matriz in matricesalternativas:
-        pesosalternativas = media_geometrica(matriz)
+        pesosalternativas = metodo(matriz)
         prioridadeslocales.append(pesosalternativas)
 
     #3. Calcular las prioridades globales
@@ -74,3 +74,55 @@ def test_consistencia(matriz: list[list[float]]) -> dict:
         razonconsistencia = indiceconsistencia/indicealeatorio
 
     return {"autovalormaximo": autovalormaximo, "CI": indiceconsistencia, "CR": razonconsistencia, "aceptable": razonconsistencia<0.10}
+
+#funcion que calcula los pesos usando el autovector del autovalor maximo
+def pesosporautovalor(matriz: list[list[float]]) -> list[float]:
+    autovalores, autovectores = np.linalg.eig(matriz)
+    n = len(matriz)
+
+    #1.buscar la posicion del autovalor mayor
+    posicionmaximo = 0
+    for i in range(1, n):
+        if autovalores[i].real > autovalores[posicionmaximo].real:
+            posicionmaximo = i
+
+    #2.guardar la columna que contiene su autovector
+    autovector = []
+    for fila in range(n):
+        valor = autovectores[fila][posicionmaximo].real
+        autovector.append(float(valor))
+
+    #3.normalizar para que los pesos sumen 1
+    pesosfilas = []
+    total = sum(autovector)
+    for valor in autovector:
+        pesosfilas.append(valor / total)
+
+    return pesosfilas
+
+
+#funcion que normaliza las columnas y calcula la media de cada fila
+def pesosaproximados(matriz: list[list[float]]) -> list[float]:
+    n = len(matriz)
+    sumascolumnas = []
+
+    #1.sumar cada columna
+    for columna in range(n):
+        sumacolumna = 0
+        for fila in matriz:
+            sumacolumna = sumacolumna + fila[columna]
+
+        sumascolumnas.append(sumacolumna)
+
+    #2.calcular la media de cada fila normalizada
+    pesosfilas = []
+    for fila in matriz:
+        sumafila = 0
+        for columna in range(n):
+            valornormalizado = fila[columna] / sumascolumnas[columna]
+            sumafila = sumafila + valornormalizado
+        pesosfilas.append(sumafila / n)
+
+    return pesosfilas
+
+
