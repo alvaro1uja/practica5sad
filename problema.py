@@ -22,11 +22,13 @@ PROBLEMAS = {
         "criterios": ["Goles", "Asistencias", "Potencial", "Liderazgo", "Adaptabilidad"],
         "alternativas": ["Diomande", "Barcola", "Rogers", "Rivera"],
         "metodo": "Autovalor",
-        # Propuesta editable: pesos relativos 8:4:2:2:1.
-        # Liderazgo y adaptabilidad: Alto frente a Medio recibe un 3.
-        "parejas": [[2, 4, 4, 8, 2, 2, 4, 1, 2, 2],
-                    [-3, -3, -3, 1, 1, 1], [1, -3, -3, -3, -3, 1]],
-        "cuantitativos": [[12, 11, 10, 16], [8, 1, 6, 10], [15, 11, 10, 13]],
-        "precios": [125, 125, 137.3],  # millones de euros de los tres comparables
+        "parejas": [
+            [3, 4, 4, 8, 2, 2, 2, 1, 2, 2],# Criterios
+            [1, 1, 1, 1, 1, 1],# Goles
+            [1, 1, 1, 1, 1, 1],# Asistencias
+            [1, 1, 1, 1, 1, 1],# Potencial
+            [6, 4, 2, 2, 2, 1],# Liderazgo
+            [-6, 4, 1, 4, 2, 1],# Adaptabilidad
+        ],
     },
 }
